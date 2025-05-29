@@ -1,2 +1,0 @@
-When using this dataset please use the following citation and pay attention to the rights documented in rights.txt:
-Bakker F, Creuwels J (2024). Naturalis Biodiversity Center (NL) - Hymenoptera. Naturalis Biodiversity Center. Occurrence dataset https://doi.org/10.15468/jgywgc accessed via GBIF.org on 2024-12-20.
