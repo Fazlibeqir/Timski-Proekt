@@ -8,41 +8,47 @@ Original file is located at
 """
 import os
 import requests
+import time
 from PIL import Image
 from io import BytesIO
-from pygbif import occurrences
+from sklearn.model_selection import train_test_split
 
 
-def get_gbif_images(scientific_name, limit=100):
+def get_gbif_images(scientific_name, limit=200):
     """
     Query GBIF for occurrence records with images for a given species.
 
     Returns a list of image URLs.
     """
+    url = "https://api.gbif.org/v1/occurrence/search"
+    params = {
+        "scientificName": scientific_name,
+        "mediaType": "StillImage",
+        "limit": limit
+    }
+
     try:
-        data = occurrences.search(
-            scientific_name=scientific_name,
-            media_type='StillImage',
-            has_coordinate=True,
-            limit=limit
-        )
-        image_urls = []
-        for record in data.get('results', []):
-            media = record.get('media', [])
-            for m in media:
-                if m.get('type') == 'StillImage' and 'identifier' in m:
-                    image_urls.append(m['identifier'])
-        return image_urls
+        r = requests.get(url, params=params, timeout=10)
+        if r.status_code != 200:
+            print(f"[ERROR] Failed API request for {scientific_name}")
+            return []
+
+        results = r.json()
+        images = []
+        for record in results.get("results", []):
+            for media in record.get("media", []):
+                if media.get("identifier"):
+                    images.append(media["identifier"])
+        return images
     except Exception as e:
-        print(f"Error fetching GBIF images for {scientific_name}: {e}")
+        print(f"[ERROR] Exception for {scientific_name}: {e}")
         return []
 
 
 def download_image(url, save_path, timeout=10):
     """
-    Downloads an image from a URL and saves it to the specified path.
-
-    Returns True if successful, False otherwise.
+    Download an image from a URL and save it as JPEG to `save_path`.
+    Returns True if download and save were successful.
     """
     try:
         response = requests.get(url, timeout=timeout)
@@ -54,17 +60,69 @@ def download_image(url, save_path, timeout=10):
         return False
 
 def folder_has_enough_images(folder_path, min_count=5):
+    """
+    Check if folder contains at least `min_count` valid images.
+    """
     if not os.path.exists(folder_path):
         return False
-    valid_images = [f for f in os.listdir(folder_path) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+    valid_images = [
+        f for f in os.listdir(folder_path)
+        if f.lower().endswith(('.png', '.jpg', '.jpeg'))
+    ]
     return len(valid_images) >= min_count
 
 
 def count_images(folder_path):
     """
-    Counts the number of image files in a folder.
+    Count total image files in a folder.
     """
     return len([
         f for f in os.listdir(folder_path)
         if f.lower().endswith(('.png', '.jpg', '.jpeg'))
     ])
+    
+    
+def split_and_download_images(species, urls, train_dir, val_dir, test_dir, max_images_per_species):
+    """
+    Split image URLs into train/val/test and download them to respective folders.
+    """
+    species_folder_name = species.replace(" ", "_")
+
+    # Paths
+    train_species_dir = os.path.join(train_dir, species_folder_name)
+    val_species_dir = os.path.join(val_dir, species_folder_name)
+    test_species_dir = os.path.join(test_dir, species_folder_name)
+
+    # Create dirs
+    os.makedirs(train_species_dir, exist_ok=True)
+    os.makedirs(val_species_dir, exist_ok=True)
+    os.makedirs(test_species_dir, exist_ok=True)
+
+    # Limit total images
+    urls = urls[:max_images_per_species]
+
+    if len(urls) < 3:
+        print(f"[SKIP] Too few images for {species}")
+        return False
+
+    # Split into train/val/test
+    train_urls, temp_urls = train_test_split(urls, test_size=0.3, random_state=42)
+    val_urls, test_urls = train_test_split(temp_urls, test_size=0.5, random_state=42)
+
+    def _save_images(urls, folder):
+        for idx, url in enumerate(urls):
+            ext = url.split('.')[-1].split('?')[0]
+            filename = f"image_{idx}.{ext}"
+            save_path = os.path.join(folder, filename)
+            if download_image(url, save_path):
+                print(f"[✔] Saved: {filename}")
+            time.sleep(0.2)
+
+    _save_images(train_urls, train_species_dir)
+    _save_images(val_urls, val_species_dir)
+    _save_images(test_urls, test_species_dir)
+
+    return True 
+    
+    
+
