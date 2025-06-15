@@ -90,7 +90,7 @@ All generated in:
 
     - compare_all_versions.ipynb
 
-- Utils (We have them just in Google Drive, excluding common_funcs.py)
+- Utils (All are in Google Drive, but in this repository we excluded .csv and .pt files)
     - common_funcs.py
     - resultsV1.csv
     - resultsV2.csv
@@ -98,7 +98,7 @@ All generated in:
     - bestV1.pt
     - bestV2.pt
     - bestV3.pt
-    - 
+
 ## 🧾 Conclusion & Insights
 - YOLOv8x-cls achieved the best classification accuracy (74%) but had the slowest inference time.
 
